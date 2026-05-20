@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matrícula Académica - Dashboard Universitario</title>
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- App Container -->
+  <div class="app-container">
+    
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="header-logo">
+        <span class="logo-icon">🎓</span>
+        <div class="logo-text">
+          <h1>Matrícula Académica</h1>
+          <p>Portal Académico Integrado</p>
+        </div>
+      </div>
+
+      <!-- Config / Simulation Bar -->
+      <div class="simulation-controls">
+        <div class="control-group">
+          <label for="studentSelector">👤 Estudiante Activo:</label>
+          <select id="studentSelector" class="select-input"></select>
+        </div>
+        
+        <div class="control-group">
+          <label for="dateSimulator">📅 Simular Fecha:</label>
+          <select id="dateSimulator" class="select-input">
+            <option value="2025-10-15" selected>15 de Octubre 2025 (A tiempo para cancelar)</option>
+            <option value="2025-12-03">03 de Diciembre 2025 (Tarde para cancelar - 2 días antes del cierre)</option>
+          </select>
+        </div>
+
+        <button onclick="AcademicSystem.resetDatabase()" class="btn btn-danger btn-sm" title="Reestablecer base de datos y localStorage">
+          🔄 Reiniciar BD
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="app-tabs">
+      <button class="tab-btn active" data-tab="student-portal-tab">
+        <span class="tab-icon">📖</span> Matrícula de Asignaturas
+      </button>
+      <button class="tab-btn" data-tab="coordinator-portal-tab">
+        <span class="tab-icon">⚙️</span> Gestión de Oferta (Coordinador)
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="app-content">
+      
+      <!-- TAB 1: Student Portal -->
+      <section id="student-portal-tab" class="tab-content active">
+        <div class="portal-grid">
+          
+          <!-- Left Column: Student Info & Enrollment Form -->
+          <div class="portal-left">
+            
+            <!-- Student Info Card -->
+            <div class="glass-card student-card">
+              <div class="card-header">
+                <h3>Datos del Estudiante</h3>
+                <span id="student-status-badge" class="badge">ACTIVO</span>
+              </div>
+              <div class="card-body">
+                <div class="info-grid">
+                  <div><strong>ID:</strong> <span id="student-id-display">EST-2025-001</span></div>
+                  <div><strong>Programa:</strong> <span id="student-program-display">Ingeniería de Sistemas</span></div>
+                  <div><strong>Semestre:</strong> <span id="student-semester-display">4</span></div>
+                  <div><strong>Periodo Activo:</strong> <span id="academic-period-display">2025-2</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Enrollment Form Card -->
+            <div class="glass-card enrollment-card">
+              <div class="card-header">
+                <h3>Inscribir Nueva Asignatura</h3>
+              </div>
+              <div class="card-body">
+                <form id="enrollment-form" onsubmit="event.preventDefault();">
+                  
+                  <!-- Credits progress bar (RN-04 indicator) -->
+                  <div class="credits-progress-container">
+                    <div class="credits-labels">
+                      <span>Créditos Inscritos:</span>
+                      <span id="credits-ratio-text">0 / 18</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                      <div id="credits-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                  </div>
+
+                  <!-- Course Selector -->
+                  <div class="form-group">
+                    <label for="course-select">Seleccione Asignatura de la Oferta:</label>
+                    <select id="course-select" class="select-input block-select">
+                      <option value="">-- Seleccionar Asignatura --</option>
+                    </select>
+                  </div>
+
+                  <!-- Course details preview box -->
+                  <div id="course-details-box" class="info-box hidden">
+                    <div class="details-grid">
+                      <div><strong>Código:</strong> <span id="detail-code"></span></div>
+                      <div><strong>Créditos:</strong> <span id="detail-credits"></span></div>
+                      <div><strong>Cupos:</strong> <span id="detail-slots"></span></div>
+                      <div><strong>Horario:</strong> <span id="detail-schedule"></span></div>
+                    </div>
+                    <div id="detail-prereqs-alert" class="prereqs-alert-info"></div>
+                  </div>
+
+                  <button id="enroll-btn" class="btn btn-primary btn-block">
+                    Inscribir Asignatura
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Waitlist Alert Option (Normally hidden, shown only when 409 slot error triggers) -->
+            <div id="waitlist-card" class="glass-card border-warning hidden">
+              <div class="card-header bg-warning">
+                <h3>Cupos Agotados (Lista de Espera)</h3>
+              </div>
+              <div class="card-body text-center">
+                <p>La asignatura <strong id="waitlist-course-name"></strong> se encuentra sin cupos disponibles. ¿Deseas ingresar a la lista de espera oficial?</p>
+                <div class="btn-row">
+                  <button id="waitlist-accept-btn" class="btn btn-warning">Sí, entrar a Lista de Espera</button>
+                  <button id="waitlist-decline-btn" class="btn btn-secondary">Cancelar</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Column: Schedule Preview & Enrollment History -->
+          <div class="portal-right">
+            
+            <!-- Schedule Grid Preview -->
+            <div class="glass-card schedule-card">
+              <div class="card-header">
+                <h3>Vista de Horario Seleccionado</h3>
+              </div>
+              <div class="card-body">
+                <div class="schedule-table-wrapper">
+                  <table class="schedule-grid">
+                    <thead>
+                      <tr>
+                        <th>Hora</th>
+                        <th>Lunes</th>
+                        <th>Martes</th>
+                        <th>Miércoles</th>
+                        <th>Jueves</th>
+                        <th>Viernes</th>
+                      </tr>
+                    </thead>
+                    <tbody id="schedule-body">
+                      <!-- Filled dynamically in app.js -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- History of Enrollments and Grades -->
+            <div class="glass-card history-card">
+              <div class="card-header">
+                <h3>Historial de Inscripciones y Notas</h3>
+              </div>
+              <div class="card-body">
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Asignatura</th>
+                        <th>Créditos</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody id="enrollment-history-body">
+                      <!-- Filled dynamically in app.js -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 2: Coordinator Portal (CRUD) -->
+      <section id="coordinator-portal-tab" class="tab-content">
+        <div class="glass-card crud-card">
+          <div class="card-header crud-header">
+            <div class="crud-title-area">
+              <h3>Gestión y Oferta de Asignaturas</h3>
+              <p>Módulo para crear, actualizar y desactivar asignaturas académicas.</p>
+            </div>
+            <button id="open-create-modal-btn" class="btn btn-success">
+              ➕ Crear Asignatura
+            </button>
+          </div>
+          
+          <div class="card-body">
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+              <input type="text" id="crud-search" class="text-input" placeholder="Buscar por código o nombre...">
+              
+              <select id="crud-filter-credits" class="select-input">
+                <option value="">Todos los créditos</option>
+                <option value="3">3 créditos</option>
+                <option value="4">4 créditos</option>
+                <option value="15">15 créditos</option>
+              </select>
+
+              <select id="crud-filter-status" class="select-input">
+                <option value="">Todos los estados</option>
+                <option value="ACTIVA">Activa</option>
+                <option value="LLENA">Llena</option>
+                <option value="INACTIVA">Inactiva</option>
+              </select>
+            </div>
+
+            <!-- Subjects Table -->
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Asignatura</th>
+                    <th>Créditos</th>
+                    <th>Cupo Máx.</th>
+                    <th>Cupo Act.</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="crud-table-body">
+                  <!-- Filled dynamically in app.js -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div class="pagination-container">
+              <button id="prev-page-btn" class="btn btn-secondary btn-sm" disabled>Anterior</button>
+              <span id="page-indicator">Página 1 de 1</span>
+              <button id="next-page-btn" class="btn btn-secondary btn-sm" disabled>Siguiente</button>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- Modal for Creating/Editing Subject (CRUD Coordinator) -->
+  <div id="subject-modal" class="modal-backdrop hidden">
+    <div class="modal-card glass-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Crear Asignatura</h3>
+        <button id="close-modal-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="subject-form" onsubmit="event.preventDefault();">
+          <input type="hidden" id="modal-subject-id">
+          
+          <div class="form-row">
+            <div class="form-group half-width">
+              <label for="modal-code">Código:</label>
+              <input type="text" id="modal-code" class="text-input" placeholder="Ej: MAT-101" required>
+            </div>
+            <div class="form-group half-width">
+              <label for="modal-name">Nombre:</label>
+              <input type="text" id="modal-name" class="text-input" placeholder="Ej: Álgebra Lineal" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group half-width">
+              <label for="modal-credits">Créditos:</label>
+              <input type="number" id="modal-credits" class="text-input" min="1" max="15" value="3" required>
+            </div>
+            <div class="form-group half-width">
+              <label for="modal-max-slots">Cupo Máximo:</label>
+              <input type="number" id="modal-max-slots" class="text-input" min="1" max="100" value="30" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Horario Semanal:</label>
+              <div class="schedule-inputs">
+                <div class="days-checkboxes">
+                  <label class="check-container"><input type="checkbox" name="modal-days" value="Lunes"> Lunes</label>
+                  <label class="check-container"><input type="checkbox" name="modal-days" value="Martes"> Martes</label>
+                  <label class="check-container"><input type="checkbox" name="modal-days" value="Miércoles"> Miércoles</label>
+                  <label class="check-container"><input type="checkbox" name="modal-days" value="Jueves"> Jueves</label>
+                  <label class="check-container"><input type="checkbox" name="modal-days" value="Viernes"> Viernes</label>
+                </div>
+                <div class="time-inputs mt-2">
+                  <label for="modal-time-start">Inicio:</label>
+                  <input type="time" id="modal-time-start" class="text-input inline-time" value="08:00">
+                  <label for="modal-time-end">Fin:</label>
+                  <input type="time" id="modal-time-end" class="text-input inline-time" value="10:00">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer mt-4">
+            <button type="button" id="cancel-modal-btn" class="btn btn-secondary">Cancelar</button>
+            <button type="submit" id="save-subject-btn" class="btn btn-primary">Guardar Asignatura</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-modal" class="modal-backdrop hidden">
+    <div class="modal-card glass-card modal-sm">
+      <div class="modal-header">
+        <h3>Desactivar Asignatura</h3>
+        <button id="close-delete-modal-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body text-center">
+        <p>¿Estás seguro de que deseas desactivar la asignatura <strong id="delete-course-name"></strong>?</p>
+        <p class="text-muted text-sm mt-1">El estado cambiará a INACTIVA y los estudiantes no podrán inscribirse.</p>
+        <div class="modal-footer mt-4 justify-center">
+          <button id="cancel-delete-btn" class="btn btn-secondary">Cancelar</button>
+          <button id="confirm-delete-btn" class="btn btn-danger">Confirmar Desactivación</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toaster (To show notifications and logs clearly) -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- JavaScript Scripts -->
+  <script src="js/seedData.js"></script>
+  <script src="js/patterns.js"></script>
+  <script src="js/mockApi.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
